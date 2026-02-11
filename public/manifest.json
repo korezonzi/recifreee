@@ -1,0 +1,16 @@
+{
+  "name": "ReciFreee",
+  "short_name": "ReciFreee",
+  "description": "レシートをfreeeへ、一瞬で。",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#2CA9E1",
+  "background_color": "#FAFAFA",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
