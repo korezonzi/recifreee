@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/header";
 import { UploadZone } from "@/components/upload-zone";
 import { ReceiptTable } from "@/components/receipt-table";
@@ -11,7 +12,8 @@ import type { ReceiptRow, ReceiptOCRResult, UserSettings } from "@/lib/types";
 import { DEFAULT_SETTINGS } from "@/lib/types";
 
 export default function HomePage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [receipts, setReceipts] = useState<ReceiptRow[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
@@ -98,7 +100,13 @@ export default function HomePage() {
     setReceipts([]);
   }, [receipts]);
 
-  if (!session) return null;
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.replace("/login");
+    }
+  }, [status, router]);
+
+  if (status !== "authenticated") return null;
 
   return (
     <>

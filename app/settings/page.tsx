@@ -1,12 +1,22 @@
 "use client";
 
+import { useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/header";
 import { SettingsForm } from "@/components/settings-form";
 
 export default function SettingsPage() {
-  const { data: session } = useSession();
-  if (!session) return null;
+  const { status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.replace("/login");
+    }
+  }, [status, router]);
+
+  if (status !== "authenticated") return null;
 
   return (
     <>

@@ -51,7 +51,7 @@ export async function processReceiptOCR(
   mimeType: string
 ): Promise<ReceiptOCRResult> {
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash-preview-05-20",
+    model: "gemini-2.5-flash",
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema,
