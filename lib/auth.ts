@@ -52,6 +52,7 @@ async function refreshAccessToken(token: {
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  debug: true,
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -73,6 +74,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   pages: {
     signIn: "/login",
+    error: "/auth-error",
   },
   callbacks: {
     async signIn({ user }) {
