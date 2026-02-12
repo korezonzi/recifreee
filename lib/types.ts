@@ -21,12 +21,22 @@ export interface ReceiptOCRResult {
   };
 }
 
+export type OcrStatus = "pending" | "processing" | "done" | "error";
+
+export interface DuplicateInfo {
+  date: string;
+  amount: number;
+  vendor: string;
+}
+
 export interface ReceiptRow {
   id: string;
   imageFile?: File;
   imageUrl?: string;
   fileName: string;
   ocr: ReceiptOCRResult;
+  ocrStatus: OcrStatus;
+  duplicateOf: DuplicateInfo | null;
   selected: boolean;
 }
 

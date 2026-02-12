@@ -1,8 +1,16 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Save, Check, X, ExternalLink, Loader2 } from "lucide-react";
+import { Save, Check, X, ExternalLink, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import type { ReceiptRow, UserSettings } from "@/lib/types";
 
@@ -20,8 +28,11 @@ export function SaveButton({ receipts, settings, onComplete }: SaveButtonProps) 
   const [driveResults, setDriveResults] = useState<
     { fileName: string; success: boolean }[]
   >([]);
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
 
-  const handleSave = useCallback(async () => {
+  const duplicateCount = receipts.filter((r) => r.duplicateOf).length;
+
+  const doSave = useCallback(async () => {
     if (receipts.length === 0) return;
 
     try {
@@ -90,6 +101,19 @@ export function SaveButton({ receipts, settings, onComplete }: SaveButtonProps) 
     }
   }, [receipts, settings]);
 
+  const handleSave = useCallback(() => {
+    if (duplicateCount > 0) {
+      setShowDuplicateDialog(true);
+    } else {
+      doSave();
+    }
+  }, [duplicateCount, doSave]);
+
+  const handleConfirmSave = useCallback(() => {
+    setShowDuplicateDialog(false);
+    doSave();
+  }, [doSave]);
+
   if (status === "done") {
     return (
       <div className="space-y-3 rounded-lg border bg-card p-4">
@@ -142,7 +166,7 @@ export function SaveButton({ receipts, settings, onComplete }: SaveButtonProps) 
             Sheetsへの保存は完了しています
           </p>
         )}
-        <Button variant="outline" size="sm" onClick={handleSave}>
+        <Button variant="outline" size="sm" onClick={doSave}>
           再試行
         </Button>
       </div>
@@ -152,25 +176,57 @@ export function SaveButton({ receipts, settings, onComplete }: SaveButtonProps) 
   const isSaving = status === "saving-sheets" || status === "saving-drive";
 
   return (
-    <Button
-      className="w-full"
-      size="lg"
-      onClick={handleSave}
-      disabled={isSaving || receipts.length === 0}
-    >
-      {isSaving ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          {status === "saving-sheets"
-            ? "Sheetsに保存中..."
-            : "Driveにアップロード中..."}
-        </>
-      ) : (
-        <>
-          <Save className="mr-2 h-4 w-4" />
-          Sheets保存 & Drive整理（{receipts.length}件）
-        </>
-      )}
-    </Button>
+    <>
+      <Button
+        className="w-full"
+        size="lg"
+        onClick={handleSave}
+        disabled={isSaving || receipts.length === 0}
+      >
+        {isSaving ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            {status === "saving-sheets"
+              ? "Sheetsに保存中..."
+              : "Driveにアップロード中..."}
+          </>
+        ) : (
+          <>
+            <Save className="mr-2 h-4 w-4" />
+            Sheets保存 & Drive整理（{receipts.length}件）
+            {duplicateCount > 0 && (
+              <span className="ml-1 text-orange-300">
+                (重複{duplicateCount}件)
+              </span>
+            )}
+          </>
+        )}
+      </Button>
+
+      <Dialog open={showDuplicateDialog} onOpenChange={setShowDuplicateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-500" />
+              重複の可能性があります
+            </DialogTitle>
+            <DialogDescription>
+              重複の可能性がある行が{duplicateCount}件あります。保存しますか？
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDuplicateDialog(false)}
+            >
+              戻って確認する
+            </Button>
+            <Button onClick={handleConfirmSave}>
+              保存する
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

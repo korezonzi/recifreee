@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/header";
@@ -8,16 +8,43 @@ import { UploadZone } from "@/components/upload-zone";
 import { ReceiptTable } from "@/components/receipt-table";
 import { SaveButton } from "@/components/save-button";
 import { toast } from "sonner";
-import type { ReceiptRow, ReceiptOCRResult, UserSettings } from "@/lib/types";
+import type {
+  ReceiptRow,
+  ReceiptOCRResult,
+  UserSettings,
+  OcrStatus,
+  DuplicateInfo,
+} from "@/lib/types";
 import { DEFAULT_SETTINGS } from "@/lib/types";
+
+const MAX_CONCURRENT_OCR = 3;
+
+const EMPTY_OCR: ReceiptOCRResult = {
+  date: null,
+  amount: null,
+  tax_amount: null,
+  vendor: null,
+  category: null,
+  description: null,
+  payment_method: null,
+  receipt_number: null,
+  confidence: { date: "low", amount: "low", vendor: "low" },
+};
+
+interface ExistingEntry {
+  date: string;
+  amount: string;
+  vendor: string;
+}
 
 export default function HomePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [receipts, setReceipts] = useState<ReceiptRow[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
+  const [existingEntries, setExistingEntries] = useState<ExistingEntry[] | null>(null);
+  const existingEntriesFetched = useRef(false);
+  const processingCount = useRef(0);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -26,47 +53,153 @@ export default function HomePage() {
       .catch(() => {});
   }, []);
 
-  const handleFilesReady = useCallback(async (files: File[]) => {
-    setIsProcessing(true);
-    setProgress({ current: 0, total: files.length });
-
+  // Fetch existing entries for duplicate detection
+  const fetchExistingEntries = useCallback(async (year: number) => {
+    if (existingEntriesFetched.current) return;
+    existingEntriesFetched.current = true;
     try {
-      const formData = new FormData();
-      files.forEach((f) => formData.append("files", f));
+      const res = await fetch(`/api/sheets?year=${year}`);
+      if (res.ok) {
+        const data = await res.json();
+        setExistingEntries(data.rows);
+      }
+    } catch {
+      // Silently fail - duplicate detection is non-critical
+    }
+  }, []);
 
-      const res = await fetch("/api/ocr", {
-        method: "POST",
-        body: formData,
-      });
+  // Check for duplicates
+  const checkDuplicate = useCallback(
+    (ocr: ReceiptOCRResult): DuplicateInfo | null => {
+      if (!existingEntries || !ocr.date || !ocr.amount || !ocr.vendor) return null;
 
-      if (!res.ok) {
-        throw new Error("OCR request failed");
+      const match = existingEntries.find(
+        (entry) =>
+          entry.date === ocr.date &&
+          entry.amount === String(ocr.amount) &&
+          entry.vendor === ocr.vendor
+      );
+
+      if (match) {
+        return {
+          date: match.date,
+          amount: Number(match.amount),
+          vendor: match.vendor,
+        };
+      }
+      return null;
+    },
+    [existingEntries]
+  );
+
+  // Process a single file OCR
+  const processOcr = useCallback(
+    async (id: string, file: File) => {
+      // Mark as processing
+      setReceipts((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, ocrStatus: "processing" as OcrStatus } : r))
+      );
+
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch("/api/ocr", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) throw new Error("OCR request failed");
+
+        const data = await res.json();
+        const result: ReceiptOCRResult = data.result;
+        const duplicateOf = checkDuplicate(result);
+
+        setReceipts((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? { ...r, ocr: result, ocrStatus: "done" as OcrStatus, duplicateOf }
+              : r
+          )
+        );
+      } catch (error) {
+        console.error(`OCR error for ${file.name}:`, error);
+        setReceipts((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, ocrStatus: "error" as OcrStatus } : r))
+        );
+      }
+    },
+    [checkDuplicate]
+  );
+
+  // OCR queue processor
+  const processQueue = useCallback(() => {
+    setReceipts((prev) => {
+      const pending = prev.filter((r) => r.ocrStatus === "pending");
+      const slotsAvailable = MAX_CONCURRENT_OCR - processingCount.current;
+
+      if (slotsAvailable <= 0 || pending.length === 0) return prev;
+
+      const toProcess = pending.slice(0, slotsAvailable);
+
+      for (const receipt of toProcess) {
+        if (receipt.imageFile) {
+          processingCount.current++;
+          processOcr(receipt.id, receipt.imageFile).finally(() => {
+            processingCount.current--;
+            // Trigger next batch
+            processQueue();
+          });
+        }
       }
 
-      const data = await res.json();
-      const results: ReceiptOCRResult[] = data.results;
+      return prev.map((r) =>
+        toProcess.some((p) => p.id === r.id)
+          ? { ...r, ocrStatus: "processing" as OcrStatus }
+          : r
+      );
+    });
+  }, [processOcr]);
 
-      const newReceipts: ReceiptRow[] = results.map((ocr, i) => ({
+  // Handle new files added
+  const handleFilesAdded = useCallback(
+    (files: File[]) => {
+      // Trigger fetching existing entries for duplicate detection
+      fetchExistingEntries(settings.year);
+
+      const newReceipts: ReceiptRow[] = files.map((file) => ({
         id: crypto.randomUUID(),
-        imageFile: files[i],
-        imageUrl: files[i].type.startsWith("image/")
-          ? URL.createObjectURL(files[i])
+        imageFile: file,
+        imageUrl: file.type.startsWith("image/")
+          ? URL.createObjectURL(file)
           : undefined,
-        fileName: files[i].name,
-        ocr,
+        fileName: file.name,
+        ocr: EMPTY_OCR,
+        ocrStatus: "pending" as OcrStatus,
+        duplicateOf: null,
         selected: false,
       }));
 
       setReceipts((prev) => [...prev, ...newReceipts]);
-      setProgress({ current: files.length, total: files.length });
-      toast.success(`${results.length}枚のOCR処理が完了しました`);
-    } catch (error) {
-      console.error("OCR error:", error);
-      toast.error("OCR処理に失敗しました");
-    } finally {
-      setIsProcessing(false);
-    }
-  }, []);
+
+      // Kick off queue processing after state update
+      setTimeout(processQueue, 0);
+    },
+    [settings.year, fetchExistingEntries, processQueue]
+  );
+
+  // Retry OCR for a specific receipt
+  const handleRetryOcr = useCallback(
+    (id: string) => {
+      setReceipts((prev) =>
+        prev.map((r) =>
+          r.id === id ? { ...r, ocrStatus: "pending" as OcrStatus } : r
+        )
+      );
+      setTimeout(processQueue, 0);
+    },
+    [processQueue]
+  );
 
   const handleUpdate = useCallback(
     (id: string, updates: Partial<ReceiptRow["ocr"]>) => {
@@ -98,7 +231,24 @@ export default function HomePage() {
       if (r.imageUrl) URL.revokeObjectURL(r.imageUrl);
     });
     setReceipts([]);
+    // Invalidate cache so next OCR batch re-fetches
+    existingEntriesFetched.current = false;
+    setExistingEntries(null);
   }, [receipts]);
+
+  // OCR statuses map for UploadZone
+  const ocrStatuses = useMemo(() => {
+    const map = new Map<string, OcrStatus>();
+    for (const r of receipts) {
+      map.set(r.fileName, r.ocrStatus);
+    }
+    return map;
+  }, [receipts]);
+
+  // Only show save button when all OCR is done
+  const allOcrDone = receipts.length > 0 && receipts.every(
+    (r) => r.ocrStatus === "done" || r.ocrStatus === "error"
+  );
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -113,9 +263,8 @@ export default function HomePage() {
       <Header />
       <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
         <UploadZone
-          onFilesReady={handleFilesReady}
-          isProcessing={isProcessing}
-          progress={progress}
+          onFilesAdded={handleFilesAdded}
+          ocrStatuses={ocrStatuses}
         />
 
         <ReceiptTable
@@ -124,9 +273,10 @@ export default function HomePage() {
           onUpdate={handleUpdate}
           onRemove={handleRemove}
           onSelectionChange={handleSelectionChange}
+          onRetryOcr={handleRetryOcr}
         />
 
-        {receipts.length > 0 && !isProcessing && (
+        {allOcrDone && (
           <SaveButton
             receipts={receipts}
             settings={settings}

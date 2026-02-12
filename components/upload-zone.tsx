@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { Upload, Camera, FolderOpen, X, ImageIcon } from "lucide-react";
+import { Upload, Camera, FolderOpen, X, ImageIcon, Loader2, Clock, AlertCircle, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { OcrStatus } from "@/lib/types";
 
 const ACCEPTED_TYPES = [
   "image/jpeg",
@@ -23,15 +24,36 @@ interface PreviewFile {
 }
 
 interface UploadZoneProps {
-  onFilesReady: (files: File[]) => void;
-  isProcessing: boolean;
-  progress?: { current: number; total: number };
+  onFilesAdded: (files: File[]) => void;
+  ocrStatuses: Map<string, OcrStatus>;
+}
+
+function StatusBadge({ status }: { status?: OcrStatus }) {
+  if (!status || status === "done") return null;
+  if (status === "pending")
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+        <Clock className="h-4 w-4 text-white" />
+      </div>
+    );
+  if (status === "processing")
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+        <Loader2 className="h-4 w-4 animate-spin text-white" />
+      </div>
+    );
+  if (status === "error")
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-red-500/40">
+        <AlertCircle className="h-4 w-4 text-white" />
+      </div>
+    );
+  return null;
 }
 
 export function UploadZone({
-  onFilesReady,
-  isProcessing,
-  progress,
+  onFilesAdded,
+  ocrStatuses,
 }: UploadZoneProps) {
   const [previews, setPreviews] = useState<PreviewFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -63,7 +85,12 @@ export function UploadZone({
     }
 
     setPreviews((prev) => [...prev, ...newPreviews]);
-  }, []);
+
+    // Auto-fire OCR immediately
+    if (files.length > 0) {
+      onFilesAdded(files);
+    }
+  }, [onFilesAdded]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -75,11 +102,6 @@ export function UploadZone({
     },
     [processFiles]
   );
-
-  const handleSubmit = useCallback(() => {
-    if (previews.length === 0) return;
-    onFilesReady(previews.map((p) => p.file));
-  }, [previews, onFilesReady]);
 
   const removePreview = useCallback((id: string) => {
     setPreviews((prev) => {
@@ -110,8 +132,7 @@ export function UploadZone({
           "relative rounded-xl border-2 border-dashed p-8 text-center transition-colors",
           isDragging
             ? "border-primary bg-primary/5"
-            : "border-muted-foreground/25 hover:border-primary/50",
-          isProcessing && "pointer-events-none opacity-50"
+            : "border-muted-foreground/25 hover:border-primary/50"
         )}
       >
         <div className="flex flex-col items-center gap-3">
@@ -123,7 +144,7 @@ export function UploadZone({
               ドラッグ&ドロップ または ファイルを選択
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              JPEG, PNG, HEIC, PDF（最大10MB/枚）
+              JPEG, PNG, HEIC, PDF（最大10MB/枚）- 選択後すぐにOCR開始
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-2">
@@ -161,7 +182,10 @@ export function UploadZone({
           accept="image/jpeg,image/png,image/heic,.heic,application/pdf"
           multiple
           className="hidden"
-          onChange={(e) => e.target.files && processFiles(e.target.files)}
+          onChange={(e) => {
+            if (e.target.files) processFiles(e.target.files);
+            e.target.value = "";
+          }}
         />
         <input
           ref={folderInputRef}
@@ -171,7 +195,10 @@ export function UploadZone({
           // @ts-expect-error webkitdirectory is not in standard types
           webkitdirectory=""
           className="hidden"
-          onChange={(e) => e.target.files && processFiles(e.target.files)}
+          onChange={(e) => {
+            if (e.target.files) processFiles(e.target.files);
+            e.target.value = "";
+          }}
         />
         <input
           ref={cameraInputRef}
@@ -179,16 +206,19 @@ export function UploadZone({
           accept="image/*"
           capture="environment"
           className="hidden"
-          onChange={(e) => e.target.files && processFiles(e.target.files)}
+          onChange={(e) => {
+            if (e.target.files) processFiles(e.target.files);
+            e.target.value = "";
+          }}
         />
       </div>
 
       {/* Preview grid */}
-      {previews.length > 0 && !isProcessing && (
+      {previews.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium">
-              {previews.length}枚の画像を選択中
+              {previews.length}枚の画像
             </p>
             <Button variant="ghost" size="sm" onClick={clearAll}>
               すべてクリア
@@ -208,6 +238,7 @@ export function UploadZone({
                     {p.file.name.split(".").pop()?.toUpperCase()}
                   </div>
                 )}
+                <StatusBadge status={ocrStatuses.get(p.file.name)} />
                 <button
                   onClick={() => removePreview(p.id)}
                   className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
@@ -216,34 +247,6 @@ export function UploadZone({
                 </button>
               </div>
             ))}
-          </div>
-          <Button
-            className="w-full"
-            size="lg"
-            onClick={handleSubmit}
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            {previews.length}枚をOCR処理する
-          </Button>
-        </div>
-      )}
-
-      {/* Progress bar */}
-      {isProcessing && progress && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">OCR処理中...</span>
-            <span className="text-muted-foreground">
-              {progress.current} / {progress.total}
-            </span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-300"
-              style={{
-                width: `${(progress.current / progress.total) * 100}%`,
-              }}
-            />
           </div>
         </div>
       )}

@@ -210,6 +210,41 @@ export async function appendToSheet(
   return `https://docs.google.com/spreadsheets/d/${spreadsheetId}`;
 }
 
+export async function getSheetData(
+  accessToken: string,
+  year: number
+): Promise<{ date: string; amount: string; vendor: string }[]> {
+  const drive = getDriveClient(accessToken);
+  const rootId = await ensureRootFolder(accessToken);
+  const fileName = `${year}年_経費`;
+
+  const res = await drive.files.list({
+    q: `'${rootId}' in parents and name='${fileName}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
+    fields: "files(id)",
+    spaces: "drive",
+  });
+
+  if (!res.data.files || res.data.files.length === 0) {
+    return [];
+  }
+
+  const spreadsheetId = res.data.files[0].id!;
+  const sheets = getSheetsClient(accessToken);
+
+  const data = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${SHEET_NAME}!A2:H`,
+  });
+
+  if (!data.data.values) return [];
+
+  return data.data.values.map((row) => ({
+    date: row[2] || "",    // col C: 発生日
+    vendor: row[4] || "",  // col E: 取引先
+    amount: row[7] || "",  // col H: 金額
+  }));
+}
+
 function buildColorRequests(
   sheetId: number,
   startRowIndex: number,

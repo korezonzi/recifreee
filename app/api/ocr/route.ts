@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { processReceiptOCR, Semaphore } from "@/lib/gemini";
+import { processReceiptOCR } from "@/lib/gemini";
 import type { ReceiptOCRResult } from "@/lib/types";
-
-const semaphore = new Semaphore(3);
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -12,34 +10,22 @@ export async function POST(req: NextRequest) {
   }
 
   const formData = await req.formData();
-  const files = formData.getAll("files") as File[];
+  const file = formData.get("file") as File | null;
 
-  if (files.length === 0) {
-    return NextResponse.json({ error: "No files provided" }, { status: 400 });
+  if (!file) {
+    return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
 
-  const results = await Promise.allSettled(
-    files.map(async (file, index) => {
-      await semaphore.acquire();
-      try {
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const base64 = buffer.toString("base64");
-        const mimeType = file.type || "image/jpeg";
-        return await processReceiptOCR(base64, mimeType);
-      } catch (error) {
-        console.error(`OCR failed for file ${index} (${file.name}):`, error);
-        return createEmptyResult();
-      } finally {
-        semaphore.release();
-      }
-    })
-  );
-
-  const ocrResults: ReceiptOCRResult[] = results.map((r) =>
-    r.status === "fulfilled" ? r.value : createEmptyResult()
-  );
-
-  return NextResponse.json({ results: ocrResults });
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const base64 = buffer.toString("base64");
+    const mimeType = file.type || "image/jpeg";
+    const result = await processReceiptOCR(base64, mimeType);
+    return NextResponse.json({ result });
+  } catch (error) {
+    console.error(`OCR failed for file (${file.name}):`, error);
+    return NextResponse.json({ result: createEmptyResult() });
+  }
 }
 
 function createEmptyResult(): ReceiptOCRResult {
