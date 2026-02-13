@@ -7,13 +7,19 @@ import { Header } from "@/components/header";
 import { UploadZone } from "@/components/upload-zone";
 import { ReceiptTable } from "@/components/receipt-table";
 import { SaveButton } from "@/components/save-button";
+import { UsageBar } from "@/components/usage-bar";
+import { CameraFab } from "@/components/camera-fab";
+import { HistoryTab } from "@/components/history-tab";
 import { toast } from "sonner";
+import confetti from "canvas-confetti";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type {
   ReceiptRow,
   ReceiptOCRResult,
   UserSettings,
   OcrStatus,
   DuplicateInfo,
+  FieldIssue,
 } from "@/lib/types";
 import { DEFAULT_SETTINGS } from "@/lib/types";
 
@@ -28,7 +34,7 @@ const EMPTY_OCR: ReceiptOCRResult = {
   description: null,
   payment_method: null,
   receipt_number: null,
-  confidence: { date: "low", amount: "low", vendor: "low" },
+  confidence: { date: "low", amount: "low", vendor: "low", category: "low" },
 };
 
 interface ExistingEntry {
@@ -37,19 +43,42 @@ interface ExistingEntry {
   vendor: string;
 }
 
+interface UsageInfo {
+  month: string;
+  count: number;
+  plan: "free" | "pro";
+  limit: number;
+}
+
 export default function HomePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [receipts, setReceipts] = useState<ReceiptRow[]>([]);
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [existingEntries, setExistingEntries] = useState<ExistingEntry[] | null>(null);
+  const [usage, setUsage] = useState<UsageInfo | null>(null);
+  const [usageLimitReached, setUsageLimitReached] = useState(false);
   const existingEntriesFetched = useRef(false);
   const processingCount = useRef(0);
+  const prevAllDoneRef = useRef(false);
 
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => r.json())
       .then((data) => setSettings(data))
+      .catch(() => {});
+  }, []);
+
+  // Fetch usage data on mount
+  useEffect(() => {
+    fetch("/api/usage")
+      .then((r) => r.json())
+      .then((data: UsageInfo) => {
+        setUsage(data);
+        if (data.plan === "free" && data.count >= data.limit) {
+          setUsageLimitReached(true);
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -109,16 +138,32 @@ export default function HomePage() {
           body: formData,
         });
 
+        if (res.status === 429) {
+          // Usage limit reached
+          setUsageLimitReached(true);
+          const data = await res.json();
+          setUsage((prev) => prev ? { ...prev, count: data.count, limit: data.limit } : null);
+          toast.error("今月の処理上限に達しました");
+          setReceipts((prev) =>
+            prev.map((r) => (r.id === id ? { ...r, ocrStatus: "error" as OcrStatus } : r))
+          );
+          return;
+        }
+
         if (!res.ok) throw new Error("OCR request failed");
 
         const data = await res.json();
         const result: ReceiptOCRResult = data.result;
+        const fieldIssues: FieldIssue[] = data.fieldIssues || [];
         const duplicateOf = checkDuplicate(result);
+
+        // Update usage count
+        setUsage((prev) => prev ? { ...prev, count: prev.count + 1 } : null);
 
         setReceipts((prev) =>
           prev.map((r) =>
             r.id === id
-              ? { ...r, ocr: result, ocrStatus: "done" as OcrStatus, duplicateOf }
+              ? { ...r, ocr: result, ocrStatus: "done" as OcrStatus, duplicateOf, fieldIssues }
               : r
           )
         );
@@ -134,6 +179,8 @@ export default function HomePage() {
 
   // OCR queue processor
   const processQueue = useCallback(() => {
+    if (usageLimitReached) return;
+
     setReceipts((prev) => {
       const pending = prev.filter((r) => r.ocrStatus === "pending");
       const slotsAvailable = MAX_CONCURRENT_OCR - processingCount.current;
@@ -159,11 +206,16 @@ export default function HomePage() {
           : r
       );
     });
-  }, [processOcr]);
+  }, [processOcr, usageLimitReached]);
 
   // Handle new files added
   const handleFilesAdded = useCallback(
     (files: File[]) => {
+      if (usageLimitReached) {
+        toast.error("今月の処理上限に達しました。Proプランへのアップグレードをご検討ください。");
+        return;
+      }
+
       // Trigger fetching existing entries for duplicate detection
       fetchExistingEntries(settings.year);
 
@@ -185,7 +237,7 @@ export default function HomePage() {
       // Kick off queue processing after state update
       setTimeout(processQueue, 0);
     },
-    [settings.year, fetchExistingEntries, processQueue]
+    [settings.year, fetchExistingEntries, processQueue, usageLimitReached]
   );
 
   // Retry OCR for a specific receipt
@@ -203,11 +255,26 @@ export default function HomePage() {
 
   const handleUpdate = useCallback(
     (id: string, updates: Partial<ReceiptRow["ocr"]>) => {
-      setReceipts((prev) =>
-        prev.map((r) =>
+      setReceipts((prev) => {
+        const receipt = prev.find((r) => r.id === id);
+        if (!receipt) return prev;
+
+        // Record category learning when category is manually changed
+        if (updates.category && receipt.ocr.vendor) {
+          fetch("/api/categories", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              vendor: receipt.ocr.vendor,
+              category: updates.category,
+            }),
+          }).catch(() => {});
+        }
+
+        return prev.map((r) =>
           r.id === id ? { ...r, ocr: { ...r.ocr, ...updates } } : r
-        )
-      );
+        );
+      });
     },
     []
   );
@@ -223,6 +290,14 @@ export default function HomePage() {
   const handleSelectionChange = useCallback((ids: string[]) => {
     setReceipts((prev) =>
       prev.map((r) => ({ ...r, selected: ids.includes(r.id) }))
+    );
+  }, []);
+
+  const handleDismissDuplicate = useCallback((id: string) => {
+    setReceipts((prev) =>
+      prev.map((r) =>
+        r.id === id ? { ...r, dismissedDuplicate: true, duplicateOf: null } : r
+      )
     );
   }, []);
 
@@ -250,6 +325,21 @@ export default function HomePage() {
     (r) => r.ocrStatus === "done" || r.ocrStatus === "error"
   );
 
+  // Confetti + toast when all OCR completes
+  useEffect(() => {
+    if (receipts.length === 0) {
+      prevAllDoneRef.current = false;
+      return;
+    }
+    if (allOcrDone && !prevAllDoneRef.current) {
+      prevAllDoneRef.current = true;
+      const doneCount = receipts.filter((r) => r.ocrStatus === "done").length;
+      toast.success(`${doneCount}件のOCR処理が完了しました`);
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      setTimeout(() => confetti.reset(), 500);
+    }
+  }, [receipts, allOcrDone]);
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.replace("/login");
@@ -262,28 +352,54 @@ export default function HomePage() {
     <>
       <Header />
       <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
-        <UploadZone
-          onFilesAdded={handleFilesAdded}
-          ocrStatuses={ocrStatuses}
-        />
+        <Tabs defaultValue="upload">
+          <TabsList>
+            <TabsTrigger value="upload">アップロード</TabsTrigger>
+            <TabsTrigger value="history">処理履歴</TabsTrigger>
+          </TabsList>
 
-        <ReceiptTable
-          receipts={receipts}
-          settings={settings}
-          onUpdate={handleUpdate}
-          onRemove={handleRemove}
-          onSelectionChange={handleSelectionChange}
-          onRetryOcr={handleRetryOcr}
-        />
+          <TabsContent value="upload" className="space-y-6">
+            <UploadZone
+              onFilesAdded={handleFilesAdded}
+              ocrStatuses={ocrStatuses}
+              receipts={receipts}
+            />
 
-        {allOcrDone && (
-          <SaveButton
-            receipts={receipts}
-            settings={settings}
-            onComplete={handleComplete}
-          />
-        )}
+            {usage && (
+              <UsageBar
+                count={usage.count}
+                limit={usage.limit}
+                plan={usage.plan}
+                limitReached={usageLimitReached}
+              />
+            )}
+
+            <ReceiptTable
+              receipts={receipts}
+              settings={settings}
+              onUpdate={handleUpdate}
+              onRemove={handleRemove}
+              onSelectionChange={handleSelectionChange}
+              onRetryOcr={handleRetryOcr}
+              onDismissDuplicate={handleDismissDuplicate}
+            />
+
+            {allOcrDone && (
+              <SaveButton
+                receipts={receipts}
+                settings={settings}
+                onComplete={handleComplete}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="history">
+            <HistoryTab settings={settings} />
+          </TabsContent>
+        </Tabs>
       </main>
+
+      <CameraFab onCapture={(file) => handleFilesAdded([file])} />
     </>
   );
 }
