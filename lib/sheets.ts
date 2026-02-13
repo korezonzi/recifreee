@@ -245,6 +245,35 @@ export async function getSheetData(
   }));
 }
 
+export async function getFullSheetData(
+  accessToken: string,
+  year: number
+): Promise<string[][]> {
+  const drive = getDriveClient(accessToken);
+  const rootId = await ensureRootFolder(accessToken);
+  const fileName = `${year}年_経費`;
+
+  const res = await drive.files.list({
+    q: `'${rootId}' in parents and name='${fileName}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
+    fields: "files(id)",
+    spaces: "drive",
+  });
+
+  if (!res.data.files || res.data.files.length === 0) {
+    return [];
+  }
+
+  const spreadsheetId = res.data.files[0].id!;
+  const sheets = getSheetsClient(accessToken);
+
+  const data = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${SHEET_NAME}!A2:U`,
+  });
+
+  return data.data.values || [];
+}
+
 function buildColorRequests(
   sheetId: number,
   startRowIndex: number,

@@ -30,13 +30,28 @@ export const metadata: Metadata = {
   },
 };
 
+const themeScript = `
+(function(){
+  try {
+    var t = localStorage.getItem('recifreee-theme') || 'system';
+    var d = t === 'system'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+      : t === 'dark';
+    if (d) document.documentElement.classList.add('dark');
+  } catch(e) {}
+})();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja">
+    <html lang="ja" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body
         className={`${inter.variable} ${notoSansJP.variable} font-sans antialiased`}
       >

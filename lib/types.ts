@@ -18,6 +18,7 @@ export interface ReceiptOCRResult {
     date: Confidence;
     amount: Confidence;
     vendor: Confidence;
+    category: Confidence;
   };
 }
 
@@ -29,6 +30,12 @@ export interface DuplicateInfo {
   vendor: string;
 }
 
+export interface FieldIssue {
+  field: "date" | "amount" | "vendor";
+  issue: "missing" | "invalid";
+  guidance: string;
+}
+
 export interface ReceiptRow {
   id: string;
   imageFile?: File;
@@ -37,13 +44,29 @@ export interface ReceiptRow {
   ocr: ReceiptOCRResult;
   ocrStatus: OcrStatus;
   duplicateOf: DuplicateInfo | null;
+  dismissedDuplicate?: boolean;
+  fieldIssues?: FieldIssue[];
   selected: boolean;
+}
+
+export interface CategoryMapping {
+  vendor: string;
+  category: string;
+  count: number;
+  lastUsed: string;
+}
+
+export interface CategoryLearningData {
+  mappings: CategoryMapping[];
+  version: number;
 }
 
 export interface UserSettings {
   year: number;
   paymentMethods: string[];
   categories: string[];
+  plan?: "free" | "pro";
+  usage?: { month: string; count: number };
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {

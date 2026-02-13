@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Upload, Camera, FolderOpen, X, ImageIcon, Loader2, Clock, AlertCircle, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { OcrStatus } from "@/lib/types";
+import { motion, AnimatePresence } from "framer-motion";
+import type { OcrStatus, ReceiptRow } from "@/lib/types";
 
 const ACCEPTED_TYPES = [
   "image/jpeg",
@@ -26,10 +27,12 @@ interface PreviewFile {
 interface UploadZoneProps {
   onFilesAdded: (files: File[]) => void;
   ocrStatuses: Map<string, OcrStatus>;
+  receipts?: ReceiptRow[];
 }
 
 function StatusBadge({ status }: { status?: OcrStatus }) {
-  if (!status || status === "done") return null;
+  if (!status) return null;
+
   if (status === "pending")
     return (
       <div className="absolute inset-0 flex items-center justify-center bg-black/40">
@@ -38,15 +41,34 @@ function StatusBadge({ status }: { status?: OcrStatus }) {
     );
   if (status === "processing")
     return (
-      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+      <motion.div
+        className="absolute inset-0 flex items-center justify-center bg-blue-500/30"
+        animate={{ opacity: [0.5, 1, 0.5] }}
+        transition={{ duration: 1.5, repeat: Infinity }}
+      >
         <Loader2 className="h-4 w-4 animate-spin text-white" />
-      </div>
+      </motion.div>
+    );
+  if (status === "done")
+    return (
+      <motion.div
+        className="absolute inset-0 flex items-center justify-center bg-green-500/20"
+        initial={{ scale: 0 }}
+        animate={{ scale: [0, 1.2, 1] }}
+        transition={{ duration: 0.4 }}
+      >
+        <Check className="h-5 w-5 text-green-400" />
+      </motion.div>
     );
   if (status === "error")
     return (
-      <div className="absolute inset-0 flex items-center justify-center bg-red-500/40">
+      <motion.div
+        className="absolute inset-0 flex items-center justify-center bg-red-500/40"
+        animate={{ x: [-10, 10, -10, 10, 0] }}
+        transition={{ duration: 0.4 }}
+      >
         <AlertCircle className="h-4 w-4 text-white" />
-      </div>
+      </motion.div>
     );
   return null;
 }
@@ -54,12 +76,22 @@ function StatusBadge({ status }: { status?: OcrStatus }) {
 export function UploadZone({
   onFilesAdded,
   ocrStatuses,
+  receipts,
 }: UploadZoneProps) {
   const [previews, setPreviews] = useState<PreviewFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // OCR progress stats
+  const ocrStats = useMemo(() => {
+    if (!receipts || receipts.length === 0) return null;
+    const total = receipts.length;
+    const done = receipts.filter((r) => r.ocrStatus === "done" || r.ocrStatus === "error").length;
+    const processing = receipts.filter((r) => r.ocrStatus === "processing").length;
+    return { total, done, processing, percentage: Math.round((done / total) * 100) };
+  }, [receipts]);
 
   const processFiles = useCallback(async (fileList: FileList | File[]) => {
     const files = Array.from(fileList).filter((f) => {
@@ -224,29 +256,73 @@ export function UploadZone({
               すべてクリア
             </Button>
           </div>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
-            {previews.map((p) => (
-              <div key={p.id} className="group relative aspect-square overflow-hidden rounded-lg border bg-muted">
-                {p.previewUrl ? (
-                  <img
-                    src={p.previewUrl}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                    {p.file.name.split(".").pop()?.toUpperCase()}
-                  </div>
-                )}
-                <StatusBadge status={ocrStatuses.get(p.file.name)} />
-                <button
-                  onClick={() => removePreview(p.id)}
-                  className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
+
+          {/* OCR Progress bar */}
+          {ocrStats && ocrStats.done < ocrStats.total && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  OCR処理中... {ocrStats.done}/{ocrStats.total} ({ocrStats.percentage}%)
+                </span>
               </div>
-            ))}
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <motion.div
+                  className="h-full rounded-full"
+                  style={{
+                    background: `linear-gradient(90deg, var(--primary) 0%, #22c55e 100%)`,
+                  }}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${ocrStats.percentage}%` }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* All done indicator */}
+          {ocrStats && ocrStats.done === ocrStats.total && ocrStats.total > 0 && (
+            <motion.div
+              className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Check className="h-3.5 w-3.5" />
+              OCR完了（{ocrStats.total}枚）
+            </motion.div>
+          )}
+
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+            <AnimatePresence>
+              {previews.map((p) => (
+                <motion.div
+                  key={p.id}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="group relative aspect-square overflow-hidden rounded-lg border bg-muted"
+                >
+                  {p.previewUrl ? (
+                    <img
+                      src={p.previewUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                      {p.file.name.split(".").pop()?.toUpperCase()}
+                    </div>
+                  )}
+                  <StatusBadge status={ocrStatuses.get(p.file.name)} />
+                  <button
+                    onClick={() => removePreview(p.id)}
+                    className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         </div>
       )}
