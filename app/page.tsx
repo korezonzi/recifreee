@@ -160,13 +160,33 @@ export default function HomePage() {
         // Update usage count
         setUsage((prev) => prev ? { ...prev, count: prev.count + 1 } : null);
 
-        setReceipts((prev) =>
-          prev.map((r) =>
+        setReceipts((prev) => {
+          // Check batch-internal duplicates (against other done receipts in same batch)
+          let finalDuplicate = duplicateOf;
+          if (!finalDuplicate && result.date && result.amount && result.vendor) {
+            const batchMatch = prev.find(
+              (other) =>
+                other.id !== id &&
+                other.ocrStatus === "done" &&
+                other.ocr.date === result.date &&
+                other.ocr.amount === result.amount &&
+                other.ocr.vendor === result.vendor
+            );
+            if (batchMatch) {
+              finalDuplicate = {
+                date: result.date,
+                amount: result.amount,
+                vendor: result.vendor,
+              };
+            }
+          }
+
+          return prev.map((r) =>
             r.id === id
-              ? { ...r, ocr: result, ocrStatus: "done" as OcrStatus, duplicateOf, fieldIssues }
+              ? { ...r, ocr: result, ocrStatus: "done" as OcrStatus, duplicateOf: finalDuplicate, fieldIssues }
               : r
-          )
-        );
+          );
+        });
       } catch (error) {
         console.error(`OCR error for ${file.name}:`, error);
         setReceipts((prev) =>

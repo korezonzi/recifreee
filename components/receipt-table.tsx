@@ -18,6 +18,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { ReceiptRow, Confidence, UserSettings, FieldIssue } from "@/lib/types";
 
@@ -133,6 +139,72 @@ function AllFieldsFailedBanner({ issues, onRetakePhoto }: { issues?: FieldIssue[
   );
 }
 
+function ConfidenceLabel({ level }: { level?: Confidence }) {
+  if (!level) return null;
+  const colors = {
+    high: "text-green-600 dark:text-green-400",
+    medium: "text-orange-600 dark:text-orange-400",
+    low: "text-red-600 dark:text-red-400",
+  };
+  const labels = { high: "高", medium: "中", low: "低" };
+  return <span className={cn("text-xs", colors[level])}>{labels[level]}</span>;
+}
+
+function ReceiptDetailDialog({
+  receipt,
+  open,
+  onOpenChange,
+}: {
+  receipt: ReceiptRow | undefined;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  if (!receipt) return null;
+  const r = receipt;
+  const fields = [
+    { label: "日付", value: r.ocr.date, confidence: r.ocr.confidence.date },
+    { label: "取引先", value: r.ocr.vendor, confidence: r.ocr.confidence.vendor },
+    { label: "金額(税込)", value: r.ocr.amount != null ? `¥${r.ocr.amount.toLocaleString()}` : null, confidence: r.ocr.confidence.amount },
+    { label: "税額", value: r.ocr.tax_amount != null ? `¥${r.ocr.tax_amount.toLocaleString()}` : null },
+    { label: "勘定科目", value: r.ocr.category, confidence: r.ocr.confidence.category },
+    { label: "決済口座", value: r.ocr.payment_method },
+    { label: "品目・備考", value: r.ocr.description },
+    { label: "レシート番号", value: r.ocr.receipt_number },
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-base">{r.fileName}</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col sm:flex-row gap-4">
+          {r.imageUrl && (
+            <div className="sm:w-1/2 shrink-0">
+              <img
+                src={r.imageUrl}
+                alt={r.fileName}
+                className="w-full max-h-[70vh] object-contain rounded border"
+              />
+            </div>
+          )}
+          <div className="flex-1 space-y-2">
+            {fields.map(({ label, value, confidence }) => (
+              <div key={label} className="flex items-baseline justify-between gap-2 border-b py-1.5 last:border-0">
+                <span className="text-xs text-muted-foreground shrink-0">{label}</span>
+                <div className="flex items-center gap-1.5 text-sm font-medium text-right">
+                  <span>{value || <span className="text-muted-foreground">-</span>}</span>
+                  {confidence && <ConfidenceLabel level={confidence} />}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // Keyboard navigation handler
 function handleCellKeyDown(e: React.KeyboardEvent<HTMLInputElement | HTMLElement>) {
   const target = e.currentTarget;
@@ -159,6 +231,7 @@ export function ReceiptTable({
   onDismissDuplicate,
 }: ReceiptTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
   const retakeInputRef = useRef<HTMLInputElement>(null);
   const [retakeTargetId, setRetakeTargetId] = useState<string | null>(null);
 
@@ -317,7 +390,8 @@ export function ReceiptTable({
                       <img
                         src={r.imageUrl}
                         alt=""
-                        className="h-10 w-10 rounded object-cover"
+                        className="h-10 w-10 rounded object-cover cursor-pointer hover:ring-2 hover:ring-primary/50 transition-shadow"
+                        onClick={() => setSelectedDetailId(r.id)}
                       />
                     ) : (
                       <div className="flex h-10 w-10 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
@@ -455,6 +529,13 @@ export function ReceiptTable({
         </table>
       </div>
 
+      {/* Receipt detail dialog */}
+      <ReceiptDetailDialog
+        receipt={receipts.find((r) => r.id === selectedDetailId)}
+        open={selectedDetailId !== null}
+        onOpenChange={(open) => { if (!open) setSelectedDetailId(null); }}
+      />
+
       {/* Mobile cards */}
       <div className="space-y-3 md:hidden">
         {receipts.map((r, rowIdx) => {
@@ -481,7 +562,8 @@ export function ReceiptTable({
                   <img
                     src={r.imageUrl}
                     alt=""
-                    className="h-16 w-16 shrink-0 rounded object-cover"
+                    className="h-16 w-16 shrink-0 rounded object-cover cursor-pointer hover:ring-2 hover:ring-primary/50 transition-shadow"
+                    onClick={() => setSelectedDetailId(r.id)}
                   />
                 )}
                 <div className="min-w-0 flex-1 space-y-2">
