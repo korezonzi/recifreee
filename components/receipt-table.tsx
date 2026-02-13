@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Trash2, Loader2, Clock, AlertCircle, AlertTriangle, RotateCcw } from "lucide-react";
+import { Trash2, Loader2, Clock, AlertCircle, AlertTriangle, RotateCcw, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -63,7 +63,13 @@ function OcrStatusBadge({ status, onRetry }: { status: ReceiptRow["ocrStatus"]; 
         )}
       </div>
     );
-  return null;
+  // done
+  return (
+    <Badge variant="secondary" className="gap-1 text-xs bg-green-100 text-green-700">
+      <CheckCircle2 className="h-3 w-3" />
+      完了
+    </Badge>
+  );
 }
 
 function DuplicateWarning({ receipt }: { receipt: ReceiptRow }) {
@@ -193,7 +199,7 @@ export function ReceiptTable({
               <th className="p-2 text-left">状態</th>
               <th className="p-2 text-left">日付</th>
               <th className="p-2 text-left">取引先</th>
-              <th className="p-2 text-right">金額</th>
+              <th className="p-2 text-right">金額(税込)</th>
               <th className="p-2 text-left">勘定科目</th>
               <th className="p-2 text-left">決済口座</th>
               <th className="p-2 text-left">備考</th>
@@ -412,7 +418,7 @@ export function ReceiptTable({
               {!disabled && (
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-xs text-muted-foreground">金額</label>
+                    <label className="text-xs text-muted-foreground">金額(税込)</label>
                     <Input
                       type="number"
                       value={r.ocr.amount ?? ""}
