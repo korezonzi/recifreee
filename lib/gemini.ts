@@ -1,4 +1,8 @@
-import { GoogleGenerativeAI, SchemaType, type Schema } from "@google/generative-ai";
+import {
+  GoogleGenerativeAI,
+  SchemaType,
+  type Schema,
+} from "@google/generative-ai";
 import type { ReceiptOCRResult, Confidence, FieldIssue } from "./types";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -17,10 +21,26 @@ const responseSchema: Schema = {
     confidence: {
       type: SchemaType.OBJECT,
       properties: {
-        date: { type: SchemaType.STRING, format: "enum", enum: ["high", "medium", "low"] },
-        amount: { type: SchemaType.STRING, format: "enum", enum: ["high", "medium", "low"] },
-        vendor: { type: SchemaType.STRING, format: "enum", enum: ["high", "medium", "low"] },
-        category: { type: SchemaType.STRING, format: "enum", enum: ["high", "medium", "low"] },
+        date: {
+          type: SchemaType.STRING,
+          format: "enum",
+          enum: ["high", "medium", "low"],
+        },
+        amount: {
+          type: SchemaType.STRING,
+          format: "enum",
+          enum: ["high", "medium", "low"],
+        },
+        vendor: {
+          type: SchemaType.STRING,
+          format: "enum",
+          enum: ["high", "medium", "low"],
+        },
+        category: {
+          type: SchemaType.STRING,
+          format: "enum",
+          enum: ["high", "medium", "low"],
+        },
       },
       required: ["date", "amount", "vendor", "category"],
     },
@@ -36,7 +56,7 @@ const BASE_OCR_PROMPT = `以下の領収書画像から情報を読み取り、J
   "amount": 数値（税込合計金額）,
   "tax_amount": 数値（消費税額、判別できれば）,
   "vendor": "店舗名・取引先名",
-  "category": "勘定科目の推定（例: 旅費交通費、接待交際費、消耗品費、通信費 等）",
+  "category": "勘定科目の推定（例: 旅費交通費、交際費、消耗品費、通信費 等）",
   "description": "品目・内容の要約",
   "payment_method": "支払方法（現金、クレジットカード等、判別できれば）",
   "receipt_number": "レシート番号（あれば）",
@@ -51,7 +71,7 @@ const BASE_OCR_PROMPT = `以下の領収書画像から情報を読み取り、J
 export async function processReceiptOCR(
   imageBase64: string,
   mimeType: string,
-  categories?: string[]
+  categories?: string[],
 ): Promise<ReceiptOCRResult> {
   const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash",
@@ -82,7 +102,10 @@ export async function processReceiptOCR(
   return postProcessConfidence(parsed, categories);
 }
 
-function postProcessConfidence(ocr: ReceiptOCRResult, categories?: string[]): ReceiptOCRResult {
+function postProcessConfidence(
+  ocr: ReceiptOCRResult,
+  categories?: string[],
+): ReceiptOCRResult {
   const result = { ...ocr, confidence: { ...ocr.confidence } };
 
   // Ensure category confidence exists (backward compat)
@@ -122,7 +145,11 @@ function postProcessConfidence(ocr: ReceiptOCRResult, categories?: string[]): Re
   // Category validation
   if (!ocr.category || ocr.category.trim() === "") {
     result.confidence.category = "low";
-  } else if (categories && categories.length > 0 && !categories.includes(ocr.category)) {
+  } else if (
+    categories &&
+    categories.length > 0 &&
+    !categories.includes(ocr.category)
+  ) {
     result.confidence.category = "low";
   }
 
@@ -174,7 +201,7 @@ export function analyzeOcrQuality(ocr: ReceiptOCRResult): FieldIssue[] {
         field: "vendor",
         issue: "missing",
         guidance: "画像が不鮮明です。再撮影をお試しください",
-      }
+      },
     );
   }
 

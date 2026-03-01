@@ -86,7 +86,7 @@ export function SettingsForm() {
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   useEffect(() => {
@@ -97,31 +97,28 @@ export function SettingsForm() {
       .finally(() => setLoading(false));
   }, []);
 
-  const save = useCallback(
-    async (updated: UserSettings) => {
-      setSaving(true);
-      try {
-        const res = await fetch("/api/settings", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updated),
-        });
-        if (!res.ok) throw new Error();
-        toast.success("設定を保存しました");
-      } catch {
-        toast.error("設定の保存に失敗しました");
-      } finally {
-        setSaving(false);
-      }
-    },
-    []
-  );
+  const save = useCallback(async (updated: UserSettings) => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updated),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("設定を保存しました");
+    } catch {
+      toast.error("設定の保存に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  }, []);
 
   const addItem = useCallback(
     (
       field: "paymentMethods" | "categories",
       value: string,
-      clear: () => void
+      clear: () => void,
     ) => {
       if (!value.trim()) return;
       if (settings[field].includes(value.trim())) {
@@ -136,7 +133,7 @@ export function SettingsForm() {
       clear();
       save(updated);
     },
-    [settings, save]
+    [settings, save],
   );
 
   const removeItem = useCallback(
@@ -148,7 +145,7 @@ export function SettingsForm() {
       setSettings(updated);
       save(updated);
     },
-    [settings, save]
+    [settings, save],
   );
 
   const handleDragEnd = useCallback(
@@ -167,7 +164,7 @@ export function SettingsForm() {
       setSettings(updated);
       save(updated);
     },
-    [settings, save]
+    [settings, save],
   );
 
   if (loading) {
@@ -217,6 +214,12 @@ export function SettingsForm() {
           <CardTitle className="text-base">決済口座</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            ⚠️
+            freeeにインポートする際、決済口座名はfreeeに登録されている口座名と
+            <strong>完全一致</strong>
+            している必要があります。freeeの口座名を確認のうえ、同じ名前で登録してください。
+          </p>
           <div className="flex gap-2">
             <Input
               value={newPayment}
@@ -225,7 +228,7 @@ export function SettingsForm() {
                 if (e.key === "Enter") {
                   e.preventDefault();
                   addItem("paymentMethods", newPayment, () =>
-                    setNewPayment("")
+                    setNewPayment(""),
                   );
                 }
               }}

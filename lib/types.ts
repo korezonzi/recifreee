@@ -79,7 +79,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   ],
   categories: [
     "旅費交通費",
-    "接待交際費",
+    "交際費",
     "消耗品費",
     "通信費",
     "地代家賃",
