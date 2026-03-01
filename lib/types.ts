@@ -109,7 +109,6 @@ export interface FreeeRow {
   決済日: string;
   決済口座: string;
   決済金額: string;
-  対象のつく仕訳を自動作成: string;
   支出元口座: string;
   取引先コード: string;
   収支計上日: string;
@@ -133,7 +132,6 @@ export const FREEE_COLUMNS = [
   "決済日",
   "決済口座",
   "決済金額",
-  "\"対象\"のつく仕訳を自動作成",
   "支出元口座",
   "取引先コード",
   "収支計上日",

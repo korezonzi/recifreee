@@ -19,7 +19,7 @@ const SHEET_NAME = "経費データ";
 
 async function findOrCreateSpreadsheet(
   accessToken: string,
-  year: number
+  year: number,
 ): Promise<string> {
   const drive = getDriveClient(accessToken);
   const rootId = await ensureRootFolder(accessToken);
@@ -68,7 +68,7 @@ async function findOrCreateSpreadsheet(
   // Write header row
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${SHEET_NAME}!A1:U1`,
+    range: `${SHEET_NAME}!A1:T1`,
     valueInputOption: "RAW",
     requestBody: {
       values: [FREEE_COLUMNS as unknown as string[]],
@@ -118,7 +118,10 @@ async function findOrCreateSpreadsheet(
   return spreadsheetId;
 }
 
-function determineTaxCategory(taxAmount: number | null, amount: number | null): string {
+function determineTaxCategory(
+  taxAmount: number | null,
+  amount: number | null,
+): string {
   if (taxAmount == null || amount == null) return "課対仕入10%";
   if (amount === 0) return "課対仕入10%";
   const rate = taxAmount / (amount - taxAmount);
@@ -127,32 +130,31 @@ function determineTaxCategory(taxAmount: number | null, amount: number | null): 
 
 export function receiptToFreeeRow(
   ocr: ReceiptOCRResult,
-  paymentMethod?: string
+  paymentMethod?: string,
 ): string[] {
   const taxCategory = determineTaxCategory(ocr.tax_amount, ocr.amount);
 
   return [
-    "支出",                                    // 収支区分
-    "",                                         // 管理番号
-    ocr.date || "",                             // 発生日
-    "",                                         // 決済期日
-    ocr.vendor || "",                           // 取引先
-    ocr.category || "",                         // 勘定科目
-    taxCategory,                                // 税区分
+    "支出", // 収支区分
+    "", // 管理番号
+    ocr.date || "", // 発生日
+    "", // 決済期日
+    ocr.vendor || "", // 取引先
+    ocr.category || "", // 勘定科目
+    taxCategory, // 税区分
     ocr.amount != null ? String(ocr.amount) : "", // 金額
-    "内税",                                     // 税計算区分
+    "内税", // 税計算区分
     ocr.tax_amount != null ? String(ocr.tax_amount) : "", // 税額
-    ocr.description || "",                      // 備考
-    "",                                         // 品目
-    "",                                         // 部門
-    "",                                         // メモタグ
-    ocr.date || "",                             // 決済日
-    paymentMethod || "",                        // 決済口座
+    ocr.description || "", // 備考
+    "", // 品目
+    "", // 部門
+    "", // メモタグ
+    ocr.date || "", // 決済日
+    paymentMethod || "", // 決済口座
     ocr.amount != null ? String(ocr.amount) : "", // 決済金額
-    "",                                         // "対象"のつく仕訳を自動作成
-    "",                                         // 支出元口座
-    "",                                         // 取引先コード
-    "",                                         // 収支計上日
+    "", // 支出元口座
+    "", // 取引先コード
+    "", // 収支計上日
   ];
 }
 
@@ -166,7 +168,7 @@ export async function appendToSheet(
   accessToken: string,
   year: number,
   rows: string[][],
-  confidences: ConfidenceInfo[]
+  confidences: ConfidenceInfo[],
 ): Promise<string> {
   const spreadsheetId = await findOrCreateSpreadsheet(accessToken, year);
   const sheets = getSheetsClient(accessToken);
@@ -181,7 +183,7 @@ export async function appendToSheet(
   // Append data
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${SHEET_NAME}!A${startRow}:U${startRow + rows.length - 1}`,
+    range: `${SHEET_NAME}!A${startRow}:T${startRow + rows.length - 1}`,
     valueInputOption: "RAW",
     requestBody: { values: rows },
   });
@@ -197,7 +199,7 @@ export async function appendToSheet(
     sheetId,
     startRow - 1,
     rows,
-    confidences
+    confidences,
   );
 
   if (colorRequests.length > 0) {
@@ -212,7 +214,7 @@ export async function appendToSheet(
 
 export async function getSheetData(
   accessToken: string,
-  year: number
+  year: number,
 ): Promise<{ date: string; amount: string; vendor: string }[]> {
   const drive = getDriveClient(accessToken);
   const rootId = await ensureRootFolder(accessToken);
@@ -239,15 +241,15 @@ export async function getSheetData(
   if (!data.data.values) return [];
 
   return data.data.values.map((row) => ({
-    date: row[2] || "",    // col C: 発生日
-    vendor: row[4] || "",  // col E: 取引先
-    amount: row[7] || "",  // col H: 金額
+    date: row[2] || "", // col C: 発生日
+    vendor: row[4] || "", // col E: 取引先
+    amount: row[7] || "", // col H: 金額
   }));
 }
 
 export async function getFullSheetData(
   accessToken: string,
-  year: number
+  year: number,
 ): Promise<string[][]> {
   const drive = getDriveClient(accessToken);
   const rootId = await ensureRootFolder(accessToken);
@@ -268,7 +270,7 @@ export async function getFullSheetData(
 
   const data = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${SHEET_NAME}!A2:U`,
+    range: `${SHEET_NAME}!A2:T`,
   });
 
   return data.data.values || [];
@@ -278,7 +280,7 @@ function buildColorRequests(
   sheetId: number,
   startRowIndex: number,
   rows: string[][],
-  confidences: ConfidenceInfo[]
+  confidences: ConfidenceInfo[],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any[] {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -286,9 +288,9 @@ function buildColorRequests(
 
   // Column mapping: which confidence field applies to which columns
   const confidenceMap: Record<number, keyof ConfidenceInfo> = {
-    2: "date",    // 発生日 (C)
-    4: "vendor",  // 取引先 (E)
-    7: "amount",  // 金額 (H)
+    2: "date", // 発生日 (C)
+    4: "vendor", // 取引先 (E)
+    7: "amount", // 金額 (H)
   };
 
   // Yellow for low confidence
