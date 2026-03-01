@@ -71,12 +71,7 @@ export interface UserSettings {
 
 export const DEFAULT_SETTINGS: UserSettings = {
   year: new Date().getFullYear(),
-  paymentMethods: [
-    "現金",
-    "プライベート資金",
-    "事業用口座",
-    "クレジットカード",
-  ],
+  paymentMethods: ["現金", "プライベート資金", "事業用口座"],
   categories: [
     "旅費交通費",
     "交際費",
