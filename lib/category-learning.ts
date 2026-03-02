@@ -1,14 +1,18 @@
-import type { ReceiptOCRResult, CategoryLearningData, CategoryMapping } from "./types";
+import type {
+  ReceiptOCRResult,
+  CategoryLearningData,
+  CategoryMapping,
+} from "./types";
 
 export function applyCategoryLearning(
   ocr: ReceiptOCRResult,
-  learningData: CategoryLearningData
+  learningData: CategoryLearningData,
 ): ReceiptOCRResult {
   if (!ocr.vendor) return ocr;
 
   const vendorNormalized = ocr.vendor.trim().toLowerCase();
   const match = learningData.mappings.find(
-    (m) => m.vendor.toLowerCase() === vendorNormalized && m.count >= 2
+    (m) => m.vendor.toLowerCase() === vendorNormalized && m.count >= 2,
   );
 
   if (match) {
@@ -25,14 +29,16 @@ export function applyCategoryLearning(
 export function recordCategoryChoice(
   learningData: CategoryLearningData,
   vendor: string,
-  category: string
+  category: string,
 ): CategoryLearningData {
   const vendorNormalized = vendor.trim();
   if (!vendorNormalized || !category) return learningData;
 
   const mappings = [...learningData.mappings];
   const existingIdx = mappings.findIndex(
-    (m) => m.vendor.toLowerCase() === vendorNormalized.toLowerCase() && m.category === category
+    (m) =>
+      m.vendor.toLowerCase() === vendorNormalized.toLowerCase() &&
+      m.category === category,
   );
 
   if (existingIdx >= 0) {
@@ -44,7 +50,7 @@ export function recordCategoryChoice(
   } else {
     // Check if there's an existing mapping for this vendor with a different category
     const sameVendorIdx = mappings.findIndex(
-      (m) => m.vendor.toLowerCase() === vendorNormalized.toLowerCase()
+      (m) => m.vendor.toLowerCase() === vendorNormalized.toLowerCase(),
     );
     if (sameVendorIdx >= 0) {
       // Replace existing mapping with new category

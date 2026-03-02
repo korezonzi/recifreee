@@ -1,7 +1,17 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Upload, Camera, FolderOpen, X, ImageIcon, Loader2, Clock, AlertCircle, Check } from "lucide-react";
+import {
+  Upload,
+  Camera,
+  FolderOpen,
+  X,
+  ImageIcon,
+  Loader2,
+  Clock,
+  AlertCircle,
+  Check,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -88,41 +98,54 @@ export function UploadZone({
   const ocrStats = useMemo(() => {
     if (!receipts || receipts.length === 0) return null;
     const total = receipts.length;
-    const done = receipts.filter((r) => r.ocrStatus === "done" || r.ocrStatus === "error").length;
-    const processing = receipts.filter((r) => r.ocrStatus === "processing").length;
-    return { total, done, processing, percentage: Math.round((done / total) * 100) };
+    const done = receipts.filter(
+      (r) => r.ocrStatus === "done" || r.ocrStatus === "error",
+    ).length;
+    const processing = receipts.filter(
+      (r) => r.ocrStatus === "processing",
+    ).length;
+    return {
+      total,
+      done,
+      processing,
+      percentage: Math.round((done / total) * 100),
+    };
   }, [receipts]);
 
-  const processFiles = useCallback(async (fileList: FileList | File[]) => {
-    const files = Array.from(fileList).filter((f) => {
-      if (!ACCEPTED_TYPES.includes(f.type) && !f.name.match(/\.heic$/i)) return false;
-      if (f.size > MAX_FILE_SIZE) return false;
-      return true;
-    });
+  const processFiles = useCallback(
+    async (fileList: FileList | File[]) => {
+      const files = Array.from(fileList).filter((f) => {
+        if (!ACCEPTED_TYPES.includes(f.type) && !f.name.match(/\.heic$/i))
+          return false;
+        if (f.size > MAX_FILE_SIZE) return false;
+        return true;
+      });
 
-    const newPreviews: PreviewFile[] = [];
-    for (const file of files) {
-      const id = crypto.randomUUID();
-      let previewUrl = "";
+      const newPreviews: PreviewFile[] = [];
+      for (const file of files) {
+        const id = crypto.randomUUID();
+        let previewUrl = "";
 
-      if (file.type.startsWith("image/")) {
-        try {
-          previewUrl = await resizeAndPreview(file);
-        } catch {
-          previewUrl = "";
+        if (file.type.startsWith("image/")) {
+          try {
+            previewUrl = await resizeAndPreview(file);
+          } catch {
+            previewUrl = "";
+          }
         }
+
+        newPreviews.push({ id, file, previewUrl });
       }
 
-      newPreviews.push({ id, file, previewUrl });
-    }
+      setPreviews((prev) => [...prev, ...newPreviews]);
 
-    setPreviews((prev) => [...prev, ...newPreviews]);
-
-    // Auto-fire OCR immediately
-    if (files.length > 0) {
-      onFilesAdded(files);
-    }
-  }, [onFilesAdded]);
+      // Auto-fire OCR immediately
+      if (files.length > 0) {
+        onFilesAdded(files);
+      }
+    },
+    [onFilesAdded],
+  );
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -132,7 +155,7 @@ export function UploadZone({
         processFiles(e.dataTransfer.files);
       }
     },
-    [processFiles]
+    [processFiles],
   );
 
   const removePreview = useCallback((id: string) => {
@@ -164,7 +187,7 @@ export function UploadZone({
           "relative rounded-xl border-2 border-dashed p-8 text-center transition-colors",
           isDragging
             ? "border-primary bg-primary/5"
-            : "border-muted-foreground/25 hover:border-primary/50"
+            : "border-muted-foreground/25 hover:border-primary/50",
         )}
       >
         <div className="flex flex-col items-center gap-3">
@@ -249,9 +272,7 @@ export function UploadZone({
       {previews.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">
-              {previews.length}枚の画像
-            </p>
+            <p className="text-sm font-medium">{previews.length}枚の画像</p>
             <Button variant="ghost" size="sm" onClick={clearAll}>
               すべてクリア
             </Button>
@@ -263,7 +284,8 @@ export function UploadZone({
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  OCR処理中... {ocrStats.done}/{ocrStats.total} ({ocrStats.percentage}%)
+                  OCR処理中... {ocrStats.done}/{ocrStats.total} (
+                  {ocrStats.percentage}%)
                 </span>
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -281,16 +303,18 @@ export function UploadZone({
           )}
 
           {/* All done indicator */}
-          {ocrStats && ocrStats.done === ocrStats.total && ocrStats.total > 0 && (
-            <motion.div
-              className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400"
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <Check className="h-3.5 w-3.5" />
-              OCR完了（{ocrStats.total}枚）
-            </motion.div>
-          )}
+          {ocrStats &&
+            ocrStats.done === ocrStats.total &&
+            ocrStats.total > 0 && (
+              <motion.div
+                className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <Check className="h-3.5 w-3.5" />
+                OCR完了（{ocrStats.total}枚）
+              </motion.div>
+            )}
 
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
             <AnimatePresence>
@@ -342,7 +366,7 @@ async function resizeAndPreview(file: File): Promise<string> {
       if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
         const ratio = Math.min(
           MAX_IMAGE_DIMENSION / width,
-          MAX_IMAGE_DIMENSION / height
+          MAX_IMAGE_DIMENSION / height,
         );
         width = Math.round(width * ratio);
         height = Math.round(height * ratio);

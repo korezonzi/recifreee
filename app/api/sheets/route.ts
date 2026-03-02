@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { appendToSheet, receiptToFreeeRow, getSheetData, getFullSheetData } from "@/lib/sheets";
+import {
+  appendToSheet,
+  receiptToFreeeRow,
+  getSheetData,
+  getFullSheetData,
+} from "@/lib/sheets";
 import { loadUserSettings } from "@/lib/drive";
 import type { ReceiptOCRResult } from "@/lib/types";
 
@@ -18,7 +23,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const year = Number(req.nextUrl.searchParams.get("year")) || new Date().getFullYear();
+  const year =
+    Number(req.nextUrl.searchParams.get("year")) || new Date().getFullYear();
   const full = req.nextUrl.searchParams.get("full") === "true";
 
   try {
@@ -45,7 +51,7 @@ export async function POST(req: NextRequest) {
   const year = body.year || settings.year;
 
   const rows = body.receipts.map((r) =>
-    receiptToFreeeRow(r.ocr, r.paymentMethod)
+    receiptToFreeeRow(r.ocr, r.paymentMethod),
   );
 
   const confidences = body.receipts.map((r) => r.ocr.confidence);
@@ -54,7 +60,7 @@ export async function POST(req: NextRequest) {
     session.accessToken,
     year,
     rows,
-    confidences
+    confidences,
   );
 
   return NextResponse.json({ url: sheetsUrl });

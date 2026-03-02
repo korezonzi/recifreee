@@ -58,10 +58,10 @@ export function HistoryTab({ settings }: HistoryTabProps) {
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       const parsed: HistoryRow[] = (data.rows as string[][]).map((row) => ({
-        date: row[2] || "",       // 発生日
-        vendor: row[4] || "",     // 取引先
-        category: row[5] || "",   // 勘定科目
-        amount: row[7] || "",     // 金額
+        date: row[2] || "", // 発生日
+        vendor: row[4] || "", // 取引先
+        category: row[5] || "", // 勘定科目
+        amount: row[7] || "", // 金額
         description: row[10] || "", // 備考
         paymentMethod: row[15] || "", // 決済口座
       }));
@@ -108,7 +108,7 @@ export function HistoryTab({ settings }: HistoryTabProps) {
       result = result.filter(
         (r) =>
           r.vendor.toLowerCase().includes(q) ||
-          r.description.toLowerCase().includes(q)
+          r.description.toLowerCase().includes(q),
       );
     }
 
@@ -219,7 +219,9 @@ export function HistoryTab({ settings }: HistoryTabProps) {
       {/* Table */}
       {filteredRows.length === 0 && loaded ? (
         <div className="rounded-lg border p-8 text-center text-sm text-muted-foreground">
-          {rows.length === 0 ? "データがありません" : "一致するデータがありません"}
+          {rows.length === 0
+            ? "データがありません"
+            : "一致するデータがありません"}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
@@ -227,7 +229,12 @@ export function HistoryTab({ settings }: HistoryTabProps) {
             <thead>
               <tr className="border-b bg-muted/50">
                 <th className="p-2 text-left">
-                  <Button variant="ghost" size="sm" className="h-auto gap-1 p-0 text-xs font-medium" onClick={() => toggleSort("date")}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto gap-1 p-0 text-xs font-medium"
+                    onClick={() => toggleSort("date")}
+                  >
                     発生日
                     <ArrowUpDown className="h-3 w-3" />
                   </Button>
@@ -235,7 +242,12 @@ export function HistoryTab({ settings }: HistoryTabProps) {
                 <th className="p-2 text-left text-xs font-medium">取引先</th>
                 <th className="p-2 text-left text-xs font-medium">勘定科目</th>
                 <th className="p-2 text-right">
-                  <Button variant="ghost" size="sm" className="h-auto gap-1 p-0 text-xs font-medium" onClick={() => toggleSort("amount")}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto gap-1 p-0 text-xs font-medium"
+                    onClick={() => toggleSort("amount")}
+                  >
                     金額
                     <ArrowUpDown className="h-3 w-3" />
                   </Button>
@@ -246,14 +258,21 @@ export function HistoryTab({ settings }: HistoryTabProps) {
             </thead>
             <tbody>
               {filteredRows.map((row, i) => (
-                <tr key={i} className="border-b last:border-0 hover:bg-muted/30">
+                <tr
+                  key={i}
+                  className="border-b last:border-0 hover:bg-muted/30"
+                >
                   <td className="p-2 text-xs whitespace-nowrap">{row.date}</td>
                   <td className="p-2 text-xs">{row.vendor}</td>
                   <td className="p-2 text-xs">{row.category}</td>
                   <td className="p-2 text-xs text-right whitespace-nowrap">
-                    {row.amount ? `¥${Number(row.amount).toLocaleString()}` : ""}
+                    {row.amount
+                      ? `¥${Number(row.amount).toLocaleString()}`
+                      : ""}
                   </td>
-                  <td className="p-2 text-xs truncate max-w-[200px]">{row.description}</td>
+                  <td className="p-2 text-xs truncate max-w-[200px]">
+                    {row.description}
+                  </td>
                   <td className="p-2 text-xs">{row.paymentMethod}</td>
                 </tr>
               ))}

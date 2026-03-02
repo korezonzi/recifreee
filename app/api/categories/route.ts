@@ -12,7 +12,10 @@ export async function POST(req: NextRequest) {
   const { vendor, category } = await req.json();
 
   if (!vendor || !category) {
-    return NextResponse.json({ error: "Missing vendor or category" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing vendor or category" },
+      { status: 400 },
+    );
   }
 
   try {

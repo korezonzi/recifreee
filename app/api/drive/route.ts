@@ -35,14 +35,18 @@ export async function POST(req: NextRequest) {
   }
 
   // Ensure folders and upload
-  const results: { fileName: string; success: boolean; driveFileName?: string }[] = [];
+  const results: {
+    fileName: string;
+    success: boolean;
+    driveFileName?: string;
+  }[] = [];
 
   for (const [key, items] of grouped) {
     const [yearStr, monthStr] = key.split("-");
     const folderId = await ensureFolderStructure(
       session.accessToken,
       parseInt(yearStr),
-      parseInt(monthStr)
+      parseInt(monthStr),
     );
 
     for (const item of items) {
@@ -56,7 +60,7 @@ export async function POST(req: NextRequest) {
           item.ocr.date,
           item.ocr.vendor,
           item.ocr.amount,
-          item.fileName
+          item.fileName,
         );
         results.push({
           fileName: item.fileName,

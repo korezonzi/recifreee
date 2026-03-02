@@ -33,10 +33,7 @@ export function Header() {
               <Button
                 variant={pathname === "/" ? "secondary" : "ghost"}
                 size="sm"
-                className={cn(
-                  "text-sm",
-                  pathname === "/" && "font-medium"
-                )}
+                className={cn("text-sm", pathname === "/" && "font-medium")}
               >
                 ホーム
               </Button>
@@ -47,7 +44,7 @@ export function Header() {
                 size="sm"
                 className={cn(
                   "text-sm",
-                  pathname === "/settings" && "font-medium"
+                  pathname === "/settings" && "font-medium",
                 )}
               >
                 <Settings className="mr-1 h-3.5 w-3.5" />
@@ -81,7 +78,9 @@ export function Header() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/login" })}>
+                <DropdownMenuItem
+                  onClick={() => signOut({ callbackUrl: "/login" })}
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   ログアウト
                 </DropdownMenuItem>

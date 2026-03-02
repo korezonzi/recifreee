@@ -12,7 +12,7 @@ function getDriveClient(accessToken: string) {
 async function findOrCreateFolder(
   accessToken: string,
   name: string,
-  parentId?: string
+  parentId?: string,
 ): Promise<string> {
   const drive = getDriveClient(accessToken);
   const parentQuery = parentId ? `'${parentId}' in parents and ` : "";
@@ -46,7 +46,7 @@ function buildFileName(
   date: string | null,
   vendor: string | null,
   amount: number | null,
-  originalName: string
+  originalName: string,
 ): string {
   const ext = originalName.split(".").pop() || "jpg";
 
@@ -67,14 +67,10 @@ function buildFileName(
 export async function ensureFolderStructure(
   accessToken: string,
   year: number,
-  month: number
+  month: number,
 ): Promise<string> {
   const rootId = await findOrCreateFolder(accessToken, "確定申告");
-  const yearId = await findOrCreateFolder(
-    accessToken,
-    `${year}年`,
-    rootId
-  );
+  const yearId = await findOrCreateFolder(accessToken, `${year}年`, rootId);
   const monthStr = `${String(month).padStart(2, "0")}月`;
   const monthId = await findOrCreateFolder(accessToken, monthStr, yearId);
   return monthId;
@@ -92,7 +88,7 @@ export async function uploadReceiptImage(
   date: string | null,
   vendor: string | null,
   amount: number | null,
-  originalName: string
+  originalName: string,
 ): Promise<{ id: string; name: string }> {
   const drive = getDriveClient(accessToken);
   const fileName = buildFileName(date, vendor, amount, originalName);
@@ -119,7 +115,7 @@ const CONFIG_FILE_NAME = ".recifreee-config.json";
 const CATEGORIES_FILE_NAME = ".recifreee-categories.json";
 
 export async function loadUserSettings(
-  accessToken: string
+  accessToken: string,
 ): Promise<UserSettings> {
   const drive = getDriveClient(accessToken);
 
@@ -138,7 +134,7 @@ export async function loadUserSettings(
     const fileId = res.data.files[0].id!;
     const content = await drive.files.get(
       { fileId, alt: "media" },
-      { responseType: "json" }
+      { responseType: "json" },
     );
 
     return { ...DEFAULT_SETTINGS, ...(content.data as object) };
@@ -149,7 +145,7 @@ export async function loadUserSettings(
 
 export async function saveUserSettings(
   accessToken: string,
-  settings: UserSettings
+  settings: UserSettings,
 ): Promise<void> {
   const drive = getDriveClient(accessToken);
   const rootId = await findOrCreateFolder(accessToken, "確定申告");
@@ -182,7 +178,7 @@ export async function saveUserSettings(
 }
 
 export async function loadCategoryLearning(
-  accessToken: string
+  accessToken: string,
 ): Promise<CategoryLearningData> {
   const drive = getDriveClient(accessToken);
 
@@ -201,7 +197,7 @@ export async function loadCategoryLearning(
     const fileId = res.data.files[0].id!;
     const content = await drive.files.get(
       { fileId, alt: "media" },
-      { responseType: "json" }
+      { responseType: "json" },
     );
 
     return { ...EMPTY_LEARNING_DATA, ...(content.data as object) };
@@ -212,7 +208,7 @@ export async function loadCategoryLearning(
 
 export async function saveCategoryLearning(
   accessToken: string,
-  data: CategoryLearningData
+  data: CategoryLearningData,
 ): Promise<void> {
   const drive = getDriveClient(accessToken);
   const rootId = await findOrCreateFolder(accessToken, "確定申告");
@@ -246,24 +242,40 @@ export async function saveCategoryLearning(
 
 const FREE_PLAN_LIMIT = 10;
 
-export async function getUsageData(
-  accessToken: string
-): Promise<{ month: string; count: number; plan: "free" | "pro"; limit: number }> {
+export async function getUsageData(accessToken: string): Promise<{
+  month: string;
+  count: number;
+  plan: "free" | "pro";
+  limit: number;
+}> {
   const settings = await loadUserSettings(accessToken);
   const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
   const plan = settings.plan || "free";
   const usage = settings.usage;
 
   if (!usage || usage.month !== currentMonth) {
-    return { month: currentMonth, count: 0, plan, limit: plan === "pro" ? Infinity : FREE_PLAN_LIMIT };
+    return {
+      month: currentMonth,
+      count: 0,
+      plan,
+      limit: plan === "pro" ? Infinity : FREE_PLAN_LIMIT,
+    };
   }
 
-  return { month: currentMonth, count: usage.count, plan, limit: plan === "pro" ? Infinity : FREE_PLAN_LIMIT };
+  return {
+    month: currentMonth,
+    count: usage.count,
+    plan,
+    limit: plan === "pro" ? Infinity : FREE_PLAN_LIMIT,
+  };
 }
 
-export async function incrementUsage(
-  accessToken: string
-): Promise<{ allowed: boolean; count: number; limit: number; plan: "free" | "pro" }> {
+export async function incrementUsage(accessToken: string): Promise<{
+  allowed: boolean;
+  count: number;
+  limit: number;
+  plan: "free" | "pro";
+}> {
   const settings = await loadUserSettings(accessToken);
   const currentMonth = new Date().toISOString().slice(0, 7);
   const plan = settings.plan || "free";

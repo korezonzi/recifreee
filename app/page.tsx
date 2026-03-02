@@ -55,7 +55,9 @@ export default function HomePage() {
   const router = useRouter();
   const [receipts, setReceipts] = useState<ReceiptRow[]>([]);
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
-  const [existingEntries, setExistingEntries] = useState<ExistingEntry[] | null>(null);
+  const [existingEntries, setExistingEntries] = useState<
+    ExistingEntry[] | null
+  >(null);
   const [usage, setUsage] = useState<UsageInfo | null>(null);
   const [usageLimitReached, setUsageLimitReached] = useState(false);
   const existingEntriesFetched = useRef(false);
@@ -100,13 +102,14 @@ export default function HomePage() {
   // Check for duplicates
   const checkDuplicate = useCallback(
     (ocr: ReceiptOCRResult): DuplicateInfo | null => {
-      if (!existingEntries || !ocr.date || !ocr.amount || !ocr.vendor) return null;
+      if (!existingEntries || !ocr.date || !ocr.amount || !ocr.vendor)
+        return null;
 
       const match = existingEntries.find(
         (entry) =>
           entry.date === ocr.date &&
           entry.amount === String(ocr.amount) &&
-          entry.vendor === ocr.vendor
+          entry.vendor === ocr.vendor,
       );
 
       if (match) {
@@ -118,7 +121,7 @@ export default function HomePage() {
       }
       return null;
     },
-    [existingEntries]
+    [existingEntries],
   );
 
   // Process a single file OCR
@@ -126,7 +129,9 @@ export default function HomePage() {
     async (id: string, file: File) => {
       // Mark as processing
       setReceipts((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, ocrStatus: "processing" as OcrStatus } : r))
+        prev.map((r) =>
+          r.id === id ? { ...r, ocrStatus: "processing" as OcrStatus } : r,
+        ),
       );
 
       try {
@@ -142,10 +147,14 @@ export default function HomePage() {
           // Usage limit reached
           setUsageLimitReached(true);
           const data = await res.json();
-          setUsage((prev) => prev ? { ...prev, count: data.count, limit: data.limit } : null);
+          setUsage((prev) =>
+            prev ? { ...prev, count: data.count, limit: data.limit } : null,
+          );
           toast.error("今月の処理上限に達しました");
           setReceipts((prev) =>
-            prev.map((r) => (r.id === id ? { ...r, ocrStatus: "error" as OcrStatus } : r))
+            prev.map((r) =>
+              r.id === id ? { ...r, ocrStatus: "error" as OcrStatus } : r,
+            ),
           );
           return;
         }
@@ -158,19 +167,24 @@ export default function HomePage() {
         const duplicateOf = checkDuplicate(result);
 
         // Update usage count
-        setUsage((prev) => prev ? { ...prev, count: prev.count + 1 } : null);
+        setUsage((prev) => (prev ? { ...prev, count: prev.count + 1 } : null));
 
         setReceipts((prev) => {
           // Check batch-internal duplicates (against other done receipts in same batch)
           let finalDuplicate = duplicateOf;
-          if (!finalDuplicate && result.date && result.amount && result.vendor) {
+          if (
+            !finalDuplicate &&
+            result.date &&
+            result.amount &&
+            result.vendor
+          ) {
             const batchMatch = prev.find(
               (other) =>
                 other.id !== id &&
                 other.ocrStatus === "done" &&
                 other.ocr.date === result.date &&
                 other.ocr.amount === result.amount &&
-                other.ocr.vendor === result.vendor
+                other.ocr.vendor === result.vendor,
             );
             if (batchMatch) {
               finalDuplicate = {
@@ -183,18 +197,26 @@ export default function HomePage() {
 
           return prev.map((r) =>
             r.id === id
-              ? { ...r, ocr: result, ocrStatus: "done" as OcrStatus, duplicateOf: finalDuplicate, fieldIssues }
-              : r
+              ? {
+                  ...r,
+                  ocr: result,
+                  ocrStatus: "done" as OcrStatus,
+                  duplicateOf: finalDuplicate,
+                  fieldIssues,
+                }
+              : r,
           );
         });
       } catch (error) {
         console.error(`OCR error for ${file.name}:`, error);
         setReceipts((prev) =>
-          prev.map((r) => (r.id === id ? { ...r, ocrStatus: "error" as OcrStatus } : r))
+          prev.map((r) =>
+            r.id === id ? { ...r, ocrStatus: "error" as OcrStatus } : r,
+          ),
         );
       }
     },
-    [checkDuplicate]
+    [checkDuplicate],
   );
 
   // OCR queue processor
@@ -223,7 +245,7 @@ export default function HomePage() {
       return prev.map((r) =>
         toProcess.some((p) => p.id === r.id)
           ? { ...r, ocrStatus: "processing" as OcrStatus }
-          : r
+          : r,
       );
     });
   }, [processOcr, usageLimitReached]);
@@ -232,7 +254,9 @@ export default function HomePage() {
   const handleFilesAdded = useCallback(
     (files: File[]) => {
       if (usageLimitReached) {
-        toast.error("今月の処理上限に達しました。Proプランへのアップグレードをご検討ください。");
+        toast.error(
+          "今月の処理上限に達しました。Proプランへのアップグレードをご検討ください。",
+        );
         return;
       }
 
@@ -257,7 +281,7 @@ export default function HomePage() {
       // Kick off queue processing after state update
       setTimeout(processQueue, 0);
     },
-    [settings.year, fetchExistingEntries, processQueue, usageLimitReached]
+    [settings.year, fetchExistingEntries, processQueue, usageLimitReached],
   );
 
   // Retry OCR for a specific receipt
@@ -265,12 +289,12 @@ export default function HomePage() {
     (id: string) => {
       setReceipts((prev) =>
         prev.map((r) =>
-          r.id === id ? { ...r, ocrStatus: "pending" as OcrStatus } : r
-        )
+          r.id === id ? { ...r, ocrStatus: "pending" as OcrStatus } : r,
+        ),
       );
       setTimeout(processQueue, 0);
     },
-    [processQueue]
+    [processQueue],
   );
 
   const handleUpdate = useCallback(
@@ -292,11 +316,11 @@ export default function HomePage() {
         }
 
         return prev.map((r) =>
-          r.id === id ? { ...r, ocr: { ...r.ocr, ...updates } } : r
+          r.id === id ? { ...r, ocr: { ...r.ocr, ...updates } } : r,
         );
       });
     },
-    []
+    [],
   );
 
   const handleRemove = useCallback((id: string) => {
@@ -309,15 +333,15 @@ export default function HomePage() {
 
   const handleSelectionChange = useCallback((ids: string[]) => {
     setReceipts((prev) =>
-      prev.map((r) => ({ ...r, selected: ids.includes(r.id) }))
+      prev.map((r) => ({ ...r, selected: ids.includes(r.id) })),
     );
   }, []);
 
   const handleDismissDuplicate = useCallback((id: string) => {
     setReceipts((prev) =>
       prev.map((r) =>
-        r.id === id ? { ...r, dismissedDuplicate: true, duplicateOf: null } : r
-      )
+        r.id === id ? { ...r, dismissedDuplicate: true, duplicateOf: null } : r,
+      ),
     );
   }, []);
 
@@ -341,9 +365,9 @@ export default function HomePage() {
   }, [receipts]);
 
   // Only show save button when all OCR is done
-  const allOcrDone = receipts.length > 0 && receipts.every(
-    (r) => r.ocrStatus === "done" || r.ocrStatus === "error"
-  );
+  const allOcrDone =
+    receipts.length > 0 &&
+    receipts.every((r) => r.ocrStatus === "done" || r.ocrStatus === "error");
 
   // Confetti + toast when all OCR completes
   useEffect(() => {

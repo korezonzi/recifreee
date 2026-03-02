@@ -13,8 +13,11 @@ export async function GET() {
     return NextResponse.json(usage);
   } catch (error) {
     console.error("Failed to get usage data:", error);
-    return NextResponse.json(
-      { month: new Date().toISOString().slice(0, 7), count: 0, plan: "free", limit: 10 }
-    );
+    return NextResponse.json({
+      month: new Date().toISOString().slice(0, 7),
+      count: 0,
+      plan: "free",
+      limit: 10,
+    });
   }
 }

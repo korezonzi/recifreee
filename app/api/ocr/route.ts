@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { processReceiptOCR, analyzeOcrQuality } from "@/lib/gemini";
-import { loadUserSettings, loadCategoryLearning, incrementUsage } from "@/lib/drive";
+import {
+  loadUserSettings,
+  loadCategoryLearning,
+  incrementUsage,
+} from "@/lib/drive";
 import { applyCategoryLearning } from "@/lib/category-learning";
 import type { ReceiptOCRResult } from "@/lib/types";
 
@@ -23,8 +27,13 @@ export async function POST(req: NextRequest) {
     const usage = await incrementUsage(session.accessToken);
     if (!usage.allowed) {
       return NextResponse.json(
-        { error: "Monthly limit reached", count: usage.count, limit: usage.limit, plan: usage.plan },
-        { status: 429 }
+        {
+          error: "Monthly limit reached",
+          count: usage.count,
+          limit: usage.limit,
+          plan: usage.plan,
+        },
+        { status: 429 },
       );
     }
   } catch (error) {

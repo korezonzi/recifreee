@@ -1,7 +1,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Save, Check, X, ExternalLink, Loader2, AlertTriangle } from "lucide-react";
+import {
+  Save,
+  Check,
+  X,
+  ExternalLink,
+  Loader2,
+  AlertTriangle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,7 +29,11 @@ interface SaveButtonProps {
   onComplete: () => void;
 }
 
-export function SaveButton({ receipts, settings, onComplete }: SaveButtonProps) {
+export function SaveButton({
+  receipts,
+  settings,
+  onComplete,
+}: SaveButtonProps) {
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [sheetsUrl, setSheetsUrl] = useState<string>();
   const [driveResults, setDriveResults] = useState<
@@ -66,8 +77,8 @@ export function SaveButton({ receipts, settings, onComplete }: SaveButtonProps) 
             imageBase64 = btoa(
               new Uint8Array(buffer).reduce(
                 (data, byte) => data + String.fromCharCode(byte),
-                ""
-              )
+                "",
+              ),
             );
             mimeType = r.imageFile.type || "image/jpeg";
           }
@@ -79,7 +90,7 @@ export function SaveButton({ receipts, settings, onComplete }: SaveButtonProps) 
             mimeType,
             year: settings.year,
           };
-        })
+        }),
       );
 
       const driveRes = await fetch("/api/drive", {
@@ -221,9 +232,7 @@ export function SaveButton({ receipts, settings, onComplete }: SaveButtonProps) 
             >
               戻って確認する
             </Button>
-            <Button onClick={handleConfirmSave}>
-              保存する
-            </Button>
+            <Button onClick={handleConfirmSave}>保存する</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

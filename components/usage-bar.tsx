@@ -18,9 +18,7 @@ interface UsageBarProps {
 export function UsageBar({ count, limit, plan, limitReached }: UsageBarProps) {
   if (plan === "pro") {
     return (
-      <div className="text-xs text-muted-foreground">
-        Pro プラン: 無制限
-      </div>
+      <div className="text-xs text-muted-foreground">Pro プラン: 無制限</div>
     );
   }
 
@@ -30,7 +28,9 @@ export function UsageBar({ count, limit, plan, limitReached }: UsageBarProps) {
     <>
       <div className="space-y-1">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>今月: {count}/{limit}枚</span>
+          <span>
+            今月: {count}/{limit}枚
+          </span>
           {count >= limit && (
             <span className="text-destructive font-medium">上限到達</span>
           )}
@@ -40,7 +40,8 @@ export function UsageBar({ count, limit, plan, limitReached }: UsageBarProps) {
             className="h-full rounded-full transition-all duration-500"
             style={{
               width: `${percentage}%`,
-              backgroundColor: percentage >= 90 ? "var(--destructive)" : "var(--primary)",
+              backgroundColor:
+                percentage >= 90 ? "var(--destructive)" : "var(--primary)",
             }}
           />
         </div>

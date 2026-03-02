@@ -34,7 +34,13 @@ export function ThemeToggle() {
   const Icon = ICONS[theme];
 
   return (
-    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={toggle} title={`テーマ: ${theme}`}>
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8"
+      onClick={toggle}
+      title={`テーマ: ${theme}`}
+    >
       <Icon className="h-4 w-4" />
     </Button>
   );
